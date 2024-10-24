@@ -4,16 +4,19 @@ namespace Adgangskontroll.Kortleser
 {
     internal class Program
     {
-        static string? enMelding = "";      //Oppgave 2     //linje 25 //må ha static hvis EndreKortIDPin metoden brukes
+        static string? enMelding = "";      //Oppgave 2     //linje 28 //må ha static hvis EndreKortIDPin metoden brukes
         static string? innlest_tekst = "";  //Oppgave 3        
-        static int kortPinFraSentral;       //Oppgave 4
+        static int kortPINFraSentral;       //Oppgave 4
         static int kortIDFraSentral;        //Oppgave 4
-        static int kortid;                  //Oppgave 4
-        static int kortPin;                 //Oppgave 4
-        static bool dørlåst;                //Oppgave 5
+        static int kortID;                  //Oppgave 4
+        static int kortPIN;                 //Oppgave 4
+        static int tidulåst=0;              //Oppgave 4     //NY
+        static bool dørLåst;                //Oppgave 5
         static bool dørPosisjon;            //Oppgave 5
         static bool dørAlarm;               //Oppgave 6
-        //static string data = "";                          //linje 24
+        //static string data = "";                          //linje 27
+        static int døråpenalarmtid = 10;       //hvor lenge døren er åpen før alarmen går. I sekunder.          //NY
+        static int dørlåstopptid = 5;          //hvor lenge døren er ulåst ved bruk av adgangskort. I sekunder. //NY
 
         static int tid = 0;
 
@@ -21,7 +24,7 @@ namespace Adgangskontroll.Kortleser
         {
             Console.ForegroundColor = ConsoleColor.DarkRed;
             SerialPort sp = new SerialPort("COM5", 9600);
-            string data = "";               //linje 16
+            string data = "";               //linje 17
             //string? enMelding = "";       //linje 7
 
             /*Erik fiks*/
@@ -78,23 +81,26 @@ namespace Adgangskontroll.Kortleser
                         enMelding = HentUtEnMelding(ref data); // Ta ut meldingen (bevar eventuell rest)
                         Console.WriteLine(enMelding); // Skriv ut meldingen
 
-                        kortid = KortID(enMelding); //Console.WriteLine($"{kortid:0000}"); //må vi legge til 000 hvis svar under 1000? Nei.
-                        kortPin = KortPin(enMelding);
-                        dørPosisjon = DørPosisjon(enMelding); 
-                        dørlåst = Dørlåst(enMelding);
+                        kortID = KortID(enMelding); //Console.WriteLine($"{kortid:0000}"); //må vi legge til 000 hvis svar under 1000? Nei.
+                        kortPIN = KortPin(enMelding);
+                        dørLåst = Dørlåst(enMelding);
+                        dørPosisjon = DørPosisjon(enMelding);
                         dørAlarm = DørAlarm(enMelding);
                         //EndreKortIDPin(innlest_tekst); //Må finne en løsning. Alexander/Nathalie fiks.
+
+                        if (dørLåst)
+                            Console.WriteLine("Dør låst"); //fiks, trenger ikke denne linjen, men har den for å teste for nå.
+                        else                     //NY
+                            Console.WriteLine("Dør ulåst"); //fiks, trenger ikke denne linjen, men har den for å teste for nå.
 
                         if (dørPosisjon)
                             Console.WriteLine("Dør åpen"); //fiks, trenger ikke denne linjen, men har den for å teste for nå.
 
-                        if (dørlåst)
-                            Console.WriteLine("Dør låst"); //fiks, trenger ikke denne linjen, men har den for å teste for nå.
-
                         //Oppgave 4
-                        if (Adgangsforepørsel(kortPin, kortid))
+                        if (Adgangsforepørsel(kortPIN, kortID))
                         {
-                            dørlåst = false;
+                            dørLåst = false;
+                            tidulåst = dørlåstopptid;               //NY
                             enMelding = enMelding.Insert(enMelding.IndexOf('E') + 6, "0");
                             enMelding = enMelding.Remove(enMelding.IndexOf('E') + 7, 1);
                             Console.WriteLine("Godkjent! Døren låses opp");
@@ -102,13 +108,23 @@ namespace Adgangskontroll.Kortleser
                         }
 
                         //Oppgave 7 hvis døren lukkes, låses døren
-                        if (!dørPosisjon && !dørlåst)
+                        if (!dørPosisjon && !dørLåst&&tidulåst<=0) //endret "&&tidulåst<=0"
                         {
-                            dørlåst = true;
+                            dørLåst = true;
                             enMelding = enMelding.Insert(enMelding.IndexOf('E') + 6, "1");
                             enMelding = enMelding.Remove(enMelding.IndexOf('E') + 7, 1);
                             Console.WriteLine("Døren ble lukket og låst ");
                             SendEnMelding("$O51", sp);
+                        }
+
+                        /*Erik fiks*/
+                        //Oppgave 7
+                        if (dørAlarm && !dørPosisjon && 500 >= Convert.ToInt32(enMelding.Substring(enMelding.IndexOf('G') + 1, 4)))
+                        {
+                            dørAlarm = false;               //NY
+                            SendEnMelding("$O70", sp);
+                            /*Erik skrive kode for å sende det til sentral*/
+                            Console.WriteLine("Dør tidsalarm ble skrudd av");
                         }
 
                         /*Erik fiks*/
@@ -118,22 +134,13 @@ namespace Adgangskontroll.Kortleser
                             SendEnMelding("$O71", sp);
                             Console.WriteLine("Alarm: På");
                             /*Erik skrive kode for å sende det til sentral*/
-                        }
-
-                        /*Erik fiks*/
-                        //Oppgave 7
-                        if (dørAlarm && !dørPosisjon && 500 >= Convert.ToInt32(enMelding.Substring(enMelding.IndexOf('G') + 1, 4)))
-                        {
-                            SendEnMelding("$O70", sp);
-                            /*Erik skrive kode for å sende det til sentral*/
-                            Console.WriteLine("Dør tidsalarm ble skrudd av");
-                        }
+                        }                        
                     }
 
                     //Oppgave 3 kunne sende meldinger til kortet
                     SendEnMelding(innlest_tekst, sp);
 
-                    //Oppgave 4 behandle adgangsforespørsler(motta kortID +PINkode fra bruker)
+                    //Oppgave 4 behandle adgangsforespørsler(motta kortid +PINkode fra bruker)
                     //Når det skal testes i mot sentral og skrives i Kortleser programmet så blir kommandoen
                     //Simsim må ikke sende meldinger for at det skal fungere.
                     //"$F1000" for ID 1000 og "$F3251" for ID 3251. Kun tall over 1023 kan endres ved å skrive i console, ellers må det endres i Simsim
@@ -151,7 +158,7 @@ namespace Adgangskontroll.Kortleser
 
 
         //Vi må sette det opp slik at pinkode og kortpin blir lest fra SIMSIM
-        //Oppgave 4 behandle adgangsforespørsler(motta kortID +PINkode fra bruker) for å sende disse til(og motta svar fra) prosessen SENTRAL
+        //Oppgave 4 behandle adgangsforespørsler(motta kortid +PINkode fra bruker) for å sende disse til(og motta svar fra) prosessen SENTRAL
         static int KortID(string EnMelding)
         {
             int indeksIDStart = EnMelding.IndexOf('F');
@@ -163,8 +170,8 @@ namespace Adgangskontroll.Kortleser
         static int KortPin(string EnMelding)
         {
             int indeksPinStart = EnMelding.IndexOf('H');
-            int kortPin = Convert.ToInt32(EnMelding.Substring(indeksPinStart + 1, 4));
-            return kortPin;
+            int kortpin = Convert.ToInt32(EnMelding.Substring(indeksPinStart + 1, 4));
+            return kortpin;
         }
 
         //Oppgave 4
@@ -200,13 +207,13 @@ namespace Adgangskontroll.Kortleser
 
         /*Erik fiks*/
         //Oppgave 4
-        static bool Adgangsforepørsel(int kortPin, int kortID)
+        static bool Adgangsforepørsel(int kortpin, int kortid)
         {
             bool adgang = false;
-            kortPinFraSentral = 1023; //Erik fikse innhentingen
+            kortPINFraSentral = 1023; //Erik fikse innhentingen
             kortIDFraSentral = 1023; //Erik fikse innhentingen
 
-            if (kortID == kortIDFraSentral && kortPin == kortPinFraSentral)
+            if (kortid == kortIDFraSentral && kortpin == kortPINFraSentral)
             {
                 adgang = true;
             }
@@ -245,7 +252,7 @@ namespace Adgangskontroll.Kortleser
             if (råDørLåst == 1)
             {
                 låst = true;
-                //Console.WriteLine("Dør låst"); //fiks, trenger ikke denne linjen, men har den for å teste for nå. er i main while loop if (dørlåst)
+                //Console.WriteLine("Dør låst"); //fiks, trenger ikke denne linjen, men har den for å teste for nå. er i main while loop if (dørLåst)
             }
             return låst;
         }
@@ -262,7 +269,7 @@ namespace Adgangskontroll.Kortleser
             int råDørAlarm = Convert.ToInt32(EnMelding.Substring(indeksDørAlarm + 8, 1)); //Utgang 7 (Indikere alarm) (av/på): //$A001B20241014C104726D00000000E00000001F0500G0500H0500I020J020#
             int råPotm = Convert.ToInt32(EnMelding.Substring(indeksPotm + 1, 4)); //Potm 1 (verdi over 500 skal representere dør brutt opp): //$A001B20241014C104726D00000000E00000000F0500G0736H0500I020J020#
 
-            if ((råDørAlarm == 1) || (råPotm > 500) || (tid > 10))
+            if ((råDørAlarm == 1) || (råPotm > 500) || (tid > døråpenalarmtid)) //endret fra tid>10 til tid>døråpenalarmtid
             {
                 alarm = true;
             }
@@ -358,6 +365,7 @@ namespace Adgangskontroll.Kortleser
             {
                 Thread.Sleep(1000);
                 tid++;
+                tidulåst--;     //NY
             }
         }
     }
