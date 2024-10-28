@@ -288,7 +288,6 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
         }
 
 
-
         //Oppgave 2: Definerer når informasjonen mottatt starter og slutter og
         //begrenser det til en melding om gangen slik at det ikke blir overlapp deretter sletter den ene meldingen.
         static string HentUtEnMelding(ref string data)
