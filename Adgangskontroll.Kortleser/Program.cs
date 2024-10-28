@@ -1,59 +1,52 @@
 ﻿using System.IO.Ports;
 
-namespace Adgangskontroll.Kortleser
+namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
 {
     internal class Program
     {
-        static string? enMelding = "";      //Oppgave 2     //linje 28 //må ha static hvis EndreKortIDPin metoden brukes
+        static string? enMelding = "";      //Oppgave 2     //linje 27 //må ha static hvis EndreKortIDPin metoden brukes
         static string? innlest_tekst = "";  //Oppgave 3        
         static int kortPINFraSentral;       //Oppgave 4
         static int kortIDFraSentral;        //Oppgave 4
         static int kortID;                  //Oppgave 4
         static int kortPIN;                 //Oppgave 4
-        static int tidulåst=0;              //Oppgave 4     //NY
+        static int tidulåst = 0;            //Oppgave 4
         static bool dørLåst;                //Oppgave 5
         static bool dørPosisjon;            //Oppgave 5
         static bool dørAlarm;               //Oppgave 6
-        //static string data = "";                          //linje 27
-        static int døråpenalarmtid = 10;       //hvor lenge døren er åpen før alarmen går. I sekunder.          //NY
-        static int dørlåstopptid = 5;          //hvor lenge døren er ulåst ved bruk av adgangskort. I sekunder. //NY
-
+        static bool dørBruttopp;            //Oppgave 6
+        //static string data = "";                          //linje 26
+        static int døråpenalarmtid = 10;    //Hvor lenge døren er åpen før alarmen går. I sekunder.
+        static int dørlåstopptid = 5;       //Hvor lenge døren er ulåst ved bruk av adgangskort. I sekunder.
         static int tid = 0;
 
         static void Main(string[] args)
         {
             Console.ForegroundColor = ConsoleColor.DarkRed;
+            //Mulig feil: hvis portnummer ikke stemmer eller den er opptatt så kjøres ikke programmet.
             SerialPort sp = new SerialPort("COM5", 9600);
             string data = "";               //linje 17
             //string? enMelding = "";       //linje 7
 
             /*Erik fiks*/
-            //Oppgave 1 registreres et kortlesernummer når prosessen 
+            //Oppgave 1: Registrer et kortlesernummer når prosessen og sender det til sentralen.
             //Console.WriteLine("Skriv inn kortlesernummer i format '####' hvor '#' er et siffer.");
             //string? kortlesernummer = Console.ReadLine(); //Erik skal bruke denne for å gi til database.
             //Console.Title = kortlesernummer!;
 
-            //Oppgave 5 aktivere/stoppe «dør åpen for lenge» alarmer når det oppstår behov for det
+            //Oppgave 5: Starter en tidsteller som kjøres parallelt med resten av koden.
+            //Som brukes når døren er åpen for lenge eller tiden døren er ulåst.
             Thread tid = new Thread(DørTid);
             tid.Start();
 
-            /* Kode som definerer og teller antall instanser av programmet. Skal ikke taes i bruk.
-            int teller = 0;
-            int antallkortleser = 10;
-            for (int i = 0; i < antallkortleser; i++)
             
-            var exists = System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly()!.Location)).Count() > i;
-            if (exists) teller++;
-            
-            Console.WriteLine(teller);
-            Console.Title = teller.ToString();
-            Console.ReadKey();
-            */
 
-            //Oppgave 3 kunne sende meldinger flere ganger
-            Thread t = new Thread(LestMelding);
-            t.Start();
+            //Oppgave 3: Starter tråd for å lese meldinger bruker skriver i konsollvinduet.
+            Thread lesing = new Thread(LestMelding);
+            lesing.Start();
 
+            //Sjekker om valgt seriel port åpen og gir feilmelding dersom den ikke er det.
+            //Mulig feil: hvis kabelen kobles fra og kobles til igjen så vil den ikke fortsette programmet, den må startes på nytt.
             try
             {
                 sp.Open();
@@ -65,79 +58,90 @@ namespace Adgangskontroll.Kortleser
 
             if (sp.IsOpen)
             {
-
+                //Setter default verdier for simsim programmet.
                 SendEnMelding("$S005", sp); //Interval 5sek
                 SendEnMelding("$O90", sp);  //Slå alle utganger av
                 SendEnMelding("$O51", sp);  //Slå låst på
 
                 while (true)
                 {
-                    innlest_tekst = "";
-                    data = data + MottaData(sp);
+                    innlest_tekst = "";             //Nullstiller innlest tekst.
+                    data = data + MottaData(sp);    //Setter mottatt informasjon fra kort til data.
 
-                    //Oppgave 2 kunne motta meldingene fra kortet
+                    //Oppgave 2: Sjekker om kort har sendt data og utfører forskjellige oppgaver.
                     if (EnHelMeldingMotatt(data))
                     {
-                        enMelding = HentUtEnMelding(ref data); // Ta ut meldingen (bevar eventuell rest)
-                        Console.WriteLine(enMelding); // Skriv ut meldingen
-
-                        kortID = KortID(enMelding); //Console.WriteLine($"{kortid:0000}"); //må vi legge til 000 hvis svar under 1000? Nei.
+                        enMelding = HentUtEnMelding(ref data);  //Ta ut meldingen (bevar eventuell rest)
+                        Console.WriteLine(enMelding);           //Skriver ut meldingen
+                        //Henter informasjon fra kortet og deklarer variablene.
+                        kortID = KortID(enMelding);
                         kortPIN = KortPin(enMelding);
                         dørLåst = Dørlåst(enMelding);
                         dørPosisjon = DørPosisjon(enMelding);
+                        dørBruttopp = DørBruttopp(enMelding);
                         dørAlarm = DørAlarm(enMelding);
                         //EndreKortIDPin(innlest_tekst); //Må finne en løsning. Alexander/Nathalie fiks.
 
+                        //De to if else-ene trengs ikke, men er for visualisering av kode.
                         if (dørLåst)
-                            Console.WriteLine("Dør låst"); //fiks, trenger ikke denne linjen, men har den for å teste for nå.
-                        else                     //NY
-                            Console.WriteLine("Dør ulåst"); //fiks, trenger ikke denne linjen, men har den for å teste for nå.
+                            Console.WriteLine("Dør låst");
+                        else
+                            Console.WriteLine("Dør ulåst");
 
                         if (dørPosisjon)
-                            Console.WriteLine("Dør åpen"); //fiks, trenger ikke denne linjen, men har den for å teste for nå.
+                            Console.WriteLine("Dør åpen");
+                        else
+                            Console.WriteLine("Dør lukket");
 
-                        //Oppgave 4
+                        //Oppgave 4: Sjekker PIN-kode og kortID, låser opp døren hvis det er riktig og lar den være ulåst i "dørlåstopptid" sekunder.
                         if (Adgangsforepørsel(kortPIN, kortID))
                         {
                             dørLåst = false;
-                            tidulåst = dørlåstopptid;               //NY
+                            tidulåst = dørlåstopptid;
                             enMelding = enMelding.Insert(enMelding.IndexOf('E') + 6, "0");
                             enMelding = enMelding.Remove(enMelding.IndexOf('E') + 7, 1);
-                            Console.WriteLine("Godkjent! Døren låses opp");
+                            Console.WriteLine("Godkjent! Døren låses opp");//Trengs ikke, men er for visualisering av kode.
                             SendEnMelding("$O50", sp);
                         }
 
-                        //Oppgave 7 hvis døren lukkes, låses døren
-                        if (!dørPosisjon && !dørLåst&&tidulåst<=0) //endret "&&tidulåst<=0"
+                        //Oppgave 7: Hvis døren lukkes, låses døren
+                        if (!dørPosisjon && !dørLåst && tidulåst <= 0)
                         {
                             dørLåst = true;
                             enMelding = enMelding.Insert(enMelding.IndexOf('E') + 6, "1");
                             enMelding = enMelding.Remove(enMelding.IndexOf('E') + 7, 1);
-                            Console.WriteLine("Døren ble lukket og låst ");
+                            Console.WriteLine("Dør lukket og låses");//De to if else-ene trengs ikke, men er for visualisering av kode.
                             SendEnMelding("$O51", sp);
                         }
 
                         /*Erik fiks*/
-                        //Oppgave 7
-                        if (dørAlarm && !dørPosisjon && 500 >= Convert.ToInt32(enMelding.Substring(enMelding.IndexOf('G') + 1, 4)))
+                        //Oppgave 7: Hvis alarmen er på, men døren er lukket og ikke brutt opp så skrues alarmen av. 
+                        if (dørAlarm && !dørPosisjon && !dørBruttopp)
                         {
-                            dørAlarm = false;               //NY
+                            dørAlarm = false;
                             SendEnMelding("$O70", sp);
                             /*Erik skrive kode for å sende det til sentral*/
-                            Console.WriteLine("Dør tidsalarm ble skrudd av");
+                            Console.WriteLine("Alarm: Av");
                         }
 
                         /*Erik fiks*/
-                        //Oppgave 6
+                        //Oppgave 6: Sjekker om døren er brutt opp.
+                        if (dørBruttopp)
+                        {
+                            Console.WriteLine("Dør brutt opp");
+                            /*Erik skrive kode for å sende det til sentral*/
+                        }
+                        /*Erik fiks*/
+                        //Oppgave 6: Skrur på alarmen hvis døren er brutt opp eller vært åpen for lenge.
                         if (dørAlarm)
                         {
                             SendEnMelding("$O71", sp);
                             Console.WriteLine("Alarm: På");
                             /*Erik skrive kode for å sende det til sentral*/
-                        }                        
+                        }
                     }
 
-                    //Oppgave 3 kunne sende meldinger til kortet
+                    //Oppgave 3: Sender meldinger til kortet
                     SendEnMelding(innlest_tekst, sp);
 
                     //Oppgave 4 behandle adgangsforespørsler(motta kortid +PINkode fra bruker)
@@ -156,9 +160,7 @@ namespace Adgangskontroll.Kortleser
         } // av Main
 
 
-
-        //Vi må sette det opp slik at pinkode og kortpin blir lest fra SIMSIM
-        //Oppgave 4 behandle adgangsforespørsler(motta kortid +PINkode fra bruker) for å sende disse til(og motta svar fra) prosessen SENTRAL
+        //Oppgave 4: Leser av oppgitt kortid fra kortet/simsim.
         static int KortID(string EnMelding)
         {
             int indeksIDStart = EnMelding.IndexOf('F');
@@ -166,7 +168,7 @@ namespace Adgangskontroll.Kortleser
             return kortid;
         }
 
-        //Oppgave 4
+        //Oppgave 4: Leser av oppgitt kort PIN-kode fra kortet/simsim.
         static int KortPin(string EnMelding)
         {
             int indeksPinStart = EnMelding.IndexOf('H');
@@ -206,12 +208,12 @@ namespace Adgangskontroll.Kortleser
         }
 
         /*Erik fiks*/
-        //Oppgave 4
+        //Oppgave 4: Behandler adgangsforespørsler fra kortet, sjekker om de samsvarer med det som er hentet fra sentral.
         static bool Adgangsforepørsel(int kortpin, int kortid)
         {
             bool adgang = false;
-            kortPINFraSentral = 1023; //Erik fikse innhentingen
-            kortIDFraSentral = 1023; //Erik fikse innhentingen
+            kortPINFraSentral = 1023;   //Erik fikse innhentingen og sending til sentral. Vi har bare satt det til 1023 for testing.
+            kortIDFraSentral = 1023;    //Erik fikse innhentingen
 
             if (kortid == kortIDFraSentral && kortpin == kortPINFraSentral)
             {
@@ -220,19 +222,16 @@ namespace Adgangskontroll.Kortleser
             return adgang;
         }
 
-
-
-        //Oppgave 5
+        //Oppgave 5: Sjekker om døren er åpen eller lukket fra innhentet data og hvis den er lukket så nullstilles tiden.
         static bool DørPosisjon(string EnMelding)
         {
             bool åpen = false;
-            int indeksDørPosisjon = EnMelding.IndexOf('E');
-            int råDørÅpen = Convert.ToInt32(EnMelding.Substring(indeksDørPosisjon + 7, 1)); //Utgang 6 (Dør åpen) (av/på): //$A001B20241014C104726D00000000E00000010F0500G0500H0500I020J020#
+            int indeksDørPosisjon = EnMelding.IndexOf('E'); //Utgang 6 (Dør åpen) (av/på): //$A001B20241014C104726D00000000E00000010F0500G0500H0500I020J020#
+            int råDørÅpen = Convert.ToInt32(EnMelding.Substring(indeksDørPosisjon + 7, 1));
 
             if (råDørÅpen == 1)
             {
                 åpen = true;
-                //Console.WriteLine("Dør åpen"); //fiks, trenger ikke denne linjen, men har den for å teste for nå. er i main while loop if (dørPosisjon)
             }
 
             if (åpen == false)
@@ -242,34 +241,45 @@ namespace Adgangskontroll.Kortleser
             return åpen;
         }
 
-        //Oppgave 5
+        //Oppgave 5: Sjekker om døren er låst eller ulåst fra innhentet data.
         static bool Dørlåst(string EnMelding)
         {
             bool låst = false;
-            int indeksDørPosisjon = EnMelding.IndexOf('E');
-            int råDørLåst = Convert.ToInt32(EnMelding.Substring(indeksDørPosisjon + 6, 1)); //Utgang 5 (Dør låst)(av/på): //$A001B20241014C104726D00000000E00000100F0500G0500H0500I020J020#
+            int indeksDørPosisjon = EnMelding.IndexOf('E'); //Utgang 5 (Dør låst)(av/på): //$A001B20241014C104726D00000000E00000100F0500G0500H0500I020J020#
+            int råDørLåst = Convert.ToInt32(EnMelding.Substring(indeksDørPosisjon + 6, 1));
 
             if (råDørLåst == 1)
             {
                 låst = true;
-                //Console.WriteLine("Dør låst"); //fiks, trenger ikke denne linjen, men har den for å teste for nå. er i main while loop if (dørLåst)
             }
             return låst;
         }
 
+        /*Erik fiks*/
+        //Oppgave 6: Sjekker om døren har blitt brutt opp eller ikke fra innhentet data.
+        static bool DørBruttopp(string EnMelding)
+        {
+            bool brudd = false;
+            int indeksPotm = EnMelding.IndexOf('G'); //Potm 1 (verdi over 500 skal representere dør brutt opp): //$A001B20241014C104726D00000000E00000000F0500G0736H0500I020J020#
+            int råPotm = Convert.ToInt32(EnMelding.Substring(indeksPotm + 1, 4));
 
+            if (råPotm > 500)
+            {
+                brudd = true;
+            }
+            //Erik fikse sending til sentral.
+            return brudd;
+        }
 
         /*Erik fiks*/
-        //Oppgave 6
+        //Oppgave 6: Sjekker om dør alarmen er på fra innhentet data og skrur alarmen på hvis døren har blitt brutt opp eller har vært åpen for lenge. 
         static bool DørAlarm(string EnMelding)
         {
             bool alarm = false;
-            int indeksDørAlarm = EnMelding.IndexOf('E');
-            int indeksPotm = EnMelding.IndexOf('G');
-            int råDørAlarm = Convert.ToInt32(EnMelding.Substring(indeksDørAlarm + 8, 1)); //Utgang 7 (Indikere alarm) (av/på): //$A001B20241014C104726D00000000E00000001F0500G0500H0500I020J020#
-            int råPotm = Convert.ToInt32(EnMelding.Substring(indeksPotm + 1, 4)); //Potm 1 (verdi over 500 skal representere dør brutt opp): //$A001B20241014C104726D00000000E00000000F0500G0736H0500I020J020#
+            int indeksDørAlarm = EnMelding.IndexOf('E'); //Utgang 7 (Indikere alarm) (av/på): //$A001B20241014C104726D00000000E00000001F0500G0500H0500I020J020#
+            int råDørAlarm = Convert.ToInt32(EnMelding.Substring(indeksDørAlarm + 8, 1));
 
-            if ((råDørAlarm == 1) || (råPotm > 500) || (tid > døråpenalarmtid)) //endret fra tid>10 til tid>døråpenalarmtid
+            if ((råDørAlarm == 1) || (dørBruttopp) || (tid > døråpenalarmtid))
             {
                 alarm = true;
             }
@@ -279,15 +289,8 @@ namespace Adgangskontroll.Kortleser
 
 
 
-
-
-        //Koden under her skal ikke endres, men må kommenteres der nødvendig
-
-
-
-
-
-        //Oppgave 2
+        //Oppgave 2: Definerer når informasjonen mottatt starter og slutter og
+        //begrenser det til en melding om gangen slik at det ikke blir overlapp deretter sletter den ene meldingen.
         static string HentUtEnMelding(ref string data)
         {
             string svar = "";
@@ -302,7 +305,7 @@ namespace Adgangskontroll.Kortleser
             return svar;
         }
 
-        //Oppgave 2
+        //Oppgave 2: Leser av informasjon mottatt fra kortet/seriell.
         static string MottaData(SerialPort sp)
         {
             string svar = "";
@@ -317,7 +320,7 @@ namespace Adgangskontroll.Kortleser
             return svar;
         }
 
-        //Oppgave 2
+        //Oppgave 2: Sjekker om informasjon mottatt fra kortet/seriell er en helt melding.
         static bool EnHelMeldingMotatt(string data)
         {
             bool svar = false;
@@ -331,9 +334,7 @@ namespace Adgangskontroll.Kortleser
             return svar;
         }
 
-
-
-        //Oppgave 3
+        //Oppgave 3: Leser meldinger bruker skriver i konsollvinduet.
         static void LestMelding()
         {
             while (true)
@@ -342,7 +343,7 @@ namespace Adgangskontroll.Kortleser
             }
         }
 
-        //Oppgave 3
+        //Oppgave 3: Sender innlest melding fra bruker til kortet/seriell.
         static void SendEnMelding(string EnMelding, SerialPort sp)
         {
             try
@@ -355,33 +356,29 @@ namespace Adgangskontroll.Kortleser
             }
         }
 
-
-
-        //Oppgave 5 aktivere/stoppe «dør åpen for lenge» alarmer når det oppstår behov for det
-        //(blant annet skal prosessen passe på at døren ikke står åpen for lenge)
+        //Oppgave 5: Øker og minker tiden (for åpnet dør alarm og være ulåst) som har gått siden programmet startet.
         static void DørTid()
         {
             while (true)
             {
                 Thread.Sleep(1000);
                 tid++;
-                tidulåst--;     //NY
+                tidulåst--;
             }
         }
     }
 }
 
 
-//kladd, trengs sikkert ikke, kanskje ugyldig dør posisjon.
-//Håndtere hva skjer dersom dør er åpen og låst?
-//if ((råDørÅpen == 0) && (råDørLåst == 1))
-//{
-//    tid = 0;
-//    Console.WriteLine("Dør låst");
-//}
-
-//if (((råDørÅpen == 1) && (råDørLåst == 1)) || ((råDørÅpen == 0) && (råDørLåst == 0)))
-//{
-//    // Bør trigge alarm (?)
-//    Console.WriteLine("Ugyldig dør posisjon");
-//}
+/* Kode som definerer og teller antall instanser av programmet. Skal ikke taes i bruk siden vi definerer kortlesernummer i konsollvinduet.
+            int teller = 0;
+            int antallkortleser = 10;
+            for (int i = 0; i < antallkortleser; i++)
+            
+            var exists = System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly()!.Location)).Count() > i;
+            if (exists) teller++;
+            
+            Console.WriteLine(teller);
+            Console.Title = teller.ToString();
+            Console.ReadKey();
+            */
