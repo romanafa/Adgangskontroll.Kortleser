@@ -1,4 +1,10 @@
 ﻿using System.IO.Ports;
+using System.Net.Sockets;
+using System.Net;
+using System.Text;
+using System.Diagnostics;
+
+
 
 namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
 {
@@ -20,11 +26,19 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
         static int dørlåstopptid = 5;       //Hvor lenge døren er ulåst ved bruk av adgangskort. I sekunder.
         static int tid = 0;
 
+        // Etablerer IP-kommunikasjon
+        Socket klientSokkel;
+
+        // Brukes for sikkerhetsmekanisme for lukking av kortleser
+        static bool Avbryt = false;
+        static bool kommunikasjonMedSentral = true; // Sett denne til false eller true basert på din situasjon
+
+        
         static void Main(string[] args)
         {
             Console.ForegroundColor = ConsoleColor.DarkRed;
             //Mulig feil: hvis portnummer ikke stemmer eller den er opptatt så kjøres ikke programmet.
-            SerialPort sp = new SerialPort("COM5", 9600);
+            SerialPort sp = new SerialPort("COM4", 9600);
             string data = "";               //linje 17
             //string? enMelding = "";       //linje 7
 
@@ -45,7 +59,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
             Thread lesing = new Thread(LestMelding);
             lesing.Start();
 
-            //Sjekker om valgt seriel port åpen og gir feilmelding dersom den ikke er det.
+            //Sjekker om valgt seriel port åpen og gir feilmelding dersom den ikke er detakee it.
             //Mulig feil: hvis kabelen kobles fra og kobles til igjen så vil den ikke fortsette programmet, den må startes på nytt.
             try
             {
@@ -160,6 +174,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
         } // av Main
 
 
+
         //Oppgave 4: Leser av oppgitt kortid fra kortet/simsim.
         static int KortID(string EnMelding)
         {
@@ -248,7 +263,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
             int indeksDørPosisjon = EnMelding.IndexOf('E'); //Utgang 5 (Dør låst)(av/på): //$A001B20241014C104726D00000000E00000100F0500G0500H0500I020J020#
             int råDørLåst = Convert.ToInt32(EnMelding.Substring(indeksDørPosisjon + 6, 1));
 
-            if (råDørLåst == 1)
+            if (råDørLåst == 1) 
             {
                 låst = true;
             }
@@ -364,6 +379,65 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
                 tid++;
                 tidulåst--;
             }
+        }
+
+        // oppkobling mot sentral
+        private void Sokkel_startup(object sender, EventArgs e)
+        {
+            // Oppretter tilkobling mot sentral ved bruk av TCP/IP
+
+            klientSokkel = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9050);
+            // må sette opp noe for å lese kortleser ID fra simsim
+
+
+            // prøver å "få tak i" tilkoblingen fra sentral
+            try
+            {
+                klientSokkel.Connect(serverEP);
+                kommunikasjonMedSentral = true;
+                try
+                {
+                    // Kortleser vil spørre etter sin ID fra sentralen
+                    dataTilSentral = "RequestID";
+                    BW_SendKvittering.RunWorkerAsync();
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+
+            }
+            catch (SocketException)
+            {
+                Console.WriteLine("Fikk ikke kontakt med sentral!");
+                kommunikasjonMedSentral = false;
+            }
+        }
+
+        private static void Avslutt()
+        {
+            if (!Avbryt)
+            {
+                Console.WriteLine($"Er du sikker på at du vil fjerne denne kortleseren? (Ja/Nei)");
+                var input = Console.ReadLine();
+
+                if (!string.IsNullOrEmpty(input) && input.Equals("Nei", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Avbryter lukking og frakobling
+                    Console.WriteLine("Avslutting avbrutt.");
+                    return;
+                }
+                else if (kommunikasjonMedSentral)
+                {
+                    // Lukker tilkoblingen
+                    klientSokkel.Shutdown(SocketShutdown.Both); //Klient sokkel må kobles opp mot sender.cs
+                    klientSokkel.Close();
+                    Console.WriteLine("Tilkoblingen ble lukket.");
+                }
+            }
+
+            Console.WriteLine("Programmet avsluttes...");
         }
     }
 }
