@@ -27,18 +27,18 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
         static int tid = 0;
 
         // Etablerer IP-kommunikasjon
-        Socket klientSokkel;
+        //Socket klientSokkel;
 
         // Brukes for sikkerhetsmekanisme for lukking av kortleser
         static bool Avbryt = false;
         static bool kommunikasjonMedSentral = true; // Sett denne til false eller true basert på din situasjon
 
-        
+
         static void Main(string[] args)
         {
             Console.ForegroundColor = ConsoleColor.DarkRed;
             //Mulig feil: hvis portnummer ikke stemmer eller den er opptatt så kjøres ikke programmet.
-            SerialPort sp = new SerialPort("COM4", 9600);
+            SerialPort sp = new SerialPort("COM3", 9600);
             string data = "";               //linje 17
             //string? enMelding = "";       //linje 7
 
@@ -53,7 +53,8 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
             Thread tid = new Thread(DørTid);
             tid.Start();
 
-            
+            // Etablerer IP-kommunikasjon
+            Socket klientSokkel;
 
             //Oppgave 3: Starter tråd for å lese meldinger bruker skriver i konsollvinduet.
             Thread lesing = new Thread(LestMelding);
@@ -134,7 +135,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
                         {
                             dørAlarm = false;
                             SendEnMelding("$O70", sp);
-                            /*Erik skrive kode for å sende det til sentral*/
+                            /*Erik skrive kode for å sende det til sentral*/ //bruk en melding som sendingsmetode
                             Console.WriteLine("Alarm: Av");
                         }
 
@@ -381,13 +382,15 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
             }
         }
 
+
+
         // oppkobling mot sentral
         private void Sokkel_startup(object sender, EventArgs e)
         {
             // Oppretter tilkobling mot sentral ved bruk av TCP/IP
 
             klientSokkel = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9050);
+            IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse("172.0.0.1"), 9050);
             // må sette opp noe for å lese kortleser ID fra simsim
 
 
@@ -417,6 +420,9 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
 
         private static void Avslutt()
         {
+
+
+
             if (!Avbryt)
             {
                 Console.WriteLine($"Er du sikker på at du vil fjerne denne kortleseren? (Ja/Nei)");
