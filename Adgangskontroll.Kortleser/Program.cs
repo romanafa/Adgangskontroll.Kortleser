@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using System.Diagnostics;
+using System.Net.NetworkInformation;
 
 
 
@@ -43,10 +44,10 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
             //string? enMelding = "";       //linje 7
 
             /*Erik fiks*/
-            //Oppgave 1: Registrer et kortlesernummer når prosessen og sender det til sentralen.
-            //Console.WriteLine("Skriv inn kortlesernummer i format '####' hvor '#' er et siffer.");
-            //string? kortlesernummer = Console.ReadLine(); //Erik skal bruke denne for å gi til database.
-            //Console.Title = kortlesernummer!;
+            // Oppgave 1: Registrer et kortlesernummer når prosessen og sender det til sentralen.
+            Console.WriteLine("Skriv inn kortlesernummer i format '####' hvor '#' er et siffer.");
+            string? kortlesernummer = Console.ReadLine(); //Erik skal bruke denne for å gi til database.
+            Console.Title = kortlesernummer!;
 
             //Oppgave 5: Starter en tidsteller som kjøres parallelt med resten av koden.
             //Som brukes når døren er åpen for lenge eller tiden døren er ulåst.
@@ -382,68 +383,171 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
             }
         }
 
+        // Liste for å lagre koden som tastes inn
+        List<int> kodeinput = new List<int>();
+        
+        // Datatypene for kortleser
+        static string dataTilSentral;
+        static string dataFraSentral;
+      
 
-
-        // oppkobling mot sentral
-        private void Sokkel_startup(object sender, EventArgs e)
+        // Metode for å lese inn kode
+        public void Kode(int inn)
         {
-            // Oppretter tilkobling mot sentral ved bruk av TCP/IP
-
-            klientSokkel = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse("172.0.0.1"), 9050);
-            // må sette opp noe for å lese kortleser ID fra simsim
-
-
-            // prøver å "få tak i" tilkoblingen fra sentral
+            kodeinput.Add(inn);
             try
             {
-                klientSokkel.Connect(serverEP);
-                kommunikasjonMedSentral = true;
+                if (kodeinput.Count == 4 && kommunikasjonMedSentral == true)
+                {
+                    //kortID = TB_KortInput.Text;
+                    //TB_KortInput.Clear();
+                    //TB_KortInput.Visible = false;
+                    //pin = kodeinput[0].ToString() + kodeinput[1].ToString() + kodeinput[2].ToString() + kodeinput[3].ToString();
+                    kodeinput.Clear();
+
+                    // Sender informasjon til sentral for å autentisere brukeren
+                    dataTilSentral = $"K:{kortID} P:{pin} L:{kortleserID}";
+
+                    if (kommunikasjonMedSentral == true)
+                    {
+                        //if (!BW_SendKvittering.IsBusy)     // BackgroundWorker skal i prinsipp aldri være opptatt, men den kan, derfor må vi sjekke for dette
+                        //{
+                        //    BW_SendKvittering.RunWorkerAsync();
+                        //}
+                        //else
+                        //{
+                        //    Console.WriteLine("feil");
+                        //}
+                        ///*MessageBox.Show("Lokal info i kortleser:\n" + dataTilSentral);*/     //debug: sjekker at informasjon lagres korrekt
+                    }
+
+                    //pin = "";
+                }
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
+
+        //// Knapper for å åpne og lukke døren
+        //private void BTN_Åpne_Click(object sender, EventArgs e)
+        //{
+
+        //    dataTilSentral = $"K:{kortID} L:{kortleserID}S";
+
+        //    if (råDørÅpen == 0 && råDørLåst == 1)
+        //    {
+        //        SendEnMelding("$O61", sp);
+        //        if (kommunikasjonMedSentral == true)
+        //        {
+        //            BW_SendKvittering.RunWorkerAsync();
+        //        }
+        //    }
+
+        //}
+
+
+        private void TCP()
+        {
+            Socket klientSokkel = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            // oppkobling mot sentral
+            void Sokkel_startup(object sender, EventArgs e)
+            {
+                // Oppretter tilkobling mot sentral ved bruk av TCP/IP
+
+                klientSokkel = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse("192.168.0.1"), 9050);
+                // må sette opp noe for å lese kortleser ID fra simsim
+
+
+                // prøver å "få tak i" tilkoblingen fra sentral
                 try
                 {
-                    // Kortleser vil spørre etter sin ID fra sentralen
-                    dataTilSentral = "RequestID";
-                    BW_SendKvittering.RunWorkerAsync();
+                    klientSokkel.Connect(serverEP);
+                    kommunikasjonMedSentral = true;
+                    try
+                    {
+                        // Kortleser vil spørre etter sin ID fra sentralen
+                        dataTilSentral = "RequestID";
+                        BW_SendKvittering.RunWorkerAsync();
+                    }
+                    catch (Exception)
+                    {
+                        throw;
+                    }
+
+                }
+                catch (SocketException)
+                {
+                    Console.WriteLine("Fikk ikke kontakt med sentral!");
+                    kommunikasjonMedSentral = false;
+                }
+            }
+
+            static void Avslutt()
+            {
+
+
+
+                if (!Avbryt)
+                {
+                    Console.WriteLine($"Er du sikker på at du vil fjerne denne kortleseren? (Ja/Nei)");
+                    var input = Console.ReadLine();
+
+                    if (!string.IsNullOrEmpty(input) && input.Equals("Nei", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Avbryter lukking og frakobling
+                        Console.WriteLine("Avslutting avbrutt.");
+                        return;
+                    }
+                    else if (kommunikasjonMedSentral)
+                    {
+                        // Lukker tilkoblingen
+                        klientSokkel.Shutdown(SocketShutdown.Both); //Klient sokkel må kobles opp mot sender.cs
+                        klientSokkel.Close();
+                        Console.WriteLine("Tilkoblingen ble lukket.");
+                    }
+                }
+
+                Console.WriteLine("Programmet avsluttes...");
+            }
+            // Generelle funksjoner for å motta og sende data til sentral
+            static string MottaData(Socket s, out bool gjennomført)
+            {
+                string svar = "";
+                try
+                {
+                    byte[] dataSomBytes = new byte[1024];
+                    int recv = s.Receive(dataSomBytes);
+                    if (recv > 0)
+                    {
+                        svar = Encoding.ASCII.GetString(dataSomBytes, 0, recv);
+                        gjennomført = true;
+                    }
+                    else
+                        gjennomført = false;
                 }
                 catch (Exception)
                 {
                     throw;
                 }
-
+                return svar;
             }
-            catch (SocketException)
+            static void SendData(Socket s, string data, out bool gjennomført)
             {
-                Console.WriteLine("Fikk ikke kontakt med sentral!");
-                kommunikasjonMedSentral = false;
-            }
-        }
-
-        private static void Avslutt()
-        {
-
-
-
-            if (!Avbryt)
-            {
-                Console.WriteLine($"Er du sikker på at du vil fjerne denne kortleseren? (Ja/Nei)");
-                var input = Console.ReadLine();
-
-                if (!string.IsNullOrEmpty(input) && input.Equals("Nei", StringComparison.OrdinalIgnoreCase))
+                try
                 {
-                    // Avbryter lukking og frakobling
-                    Console.WriteLine("Avslutting avbrutt.");
-                    return;
+                    byte[] dataSomBytes = Encoding.ASCII.GetBytes(data);
+                    s.Send(dataSomBytes, dataSomBytes.Length, SocketFlags.None);
+                    gjennomført = true;
                 }
-                else if (kommunikasjonMedSentral)
+                catch (Exception)
                 {
-                    // Lukker tilkoblingen
-                    klientSokkel.Shutdown(SocketShutdown.Both); //Klient sokkel må kobles opp mot sender.cs
-                    klientSokkel.Close();
-                    Console.WriteLine("Tilkoblingen ble lukket.");
+                    gjennomført = false;
                 }
             }
-
-            Console.WriteLine("Programmet avsluttes...");
         }
     }
 }
