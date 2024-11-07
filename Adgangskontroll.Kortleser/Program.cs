@@ -39,15 +39,15 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
         {
             Console.ForegroundColor = ConsoleColor.DarkRed;
             //Mulig feil: hvis portnummer ikke stemmer eller den er opptatt så kjøres ikke programmet.
-            SerialPort sp = new SerialPort("COM3", 9600);
+            SerialPort sp = new SerialPort("COM4", 9600);
             string data = "";               //linje 17
             //string? enMelding = "";       //linje 7
 
             /*Erik fiks*/
             // Oppgave 1: Registrer et kortlesernummer når prosessen og sender det til sentralen.
-            Console.WriteLine("Skriv inn kortlesernummer i format '####' hvor '#' er et siffer.");
-            string? kortlesernummer = Console.ReadLine(); //Erik skal bruke denne for å gi til database.
-            Console.Title = kortlesernummer!;
+            //Console.WriteLine("Skriv inn kortlesernummer i format '####' hvor '#' er et siffer.");
+            //string? kortlesernummer = Console.ReadLine(); //Erik skal bruke denne for å gi til database.
+            //Console.Title = kortlesernummer!;
 
             //Oppgave 5: Starter en tidsteller som kjøres parallelt med resten av koden.
             //Som brukes når døren er åpen for lenge eller tiden døren er ulåst.
@@ -55,7 +55,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
             tid.Start();
 
             // Etablerer IP-kommunikasjon
-            Socket klientSokkel;
+            // Socket klientSokkel;
 
             //Oppgave 3: Starter tråd for å lese meldinger bruker skriver i konsollvinduet.
             Thread lesing = new Thread(LestMelding);
@@ -165,8 +165,8 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
                     //Simsim må ikke sende meldinger for at det skal fungere.
                     //"$F1000" for ID 1000 og "$F3251" for ID 3251. Kun tall over 1023 kan endres ved å skrive i console, ellers må det endres i Simsim
                     //"$H1000" for pin 1000 og "$H3251" for pin 3251.
-                    EndreKortIDPin(innlest_tekst); //Må finne en løsning. Alexander/Nathalie fiks.
-                    EndreKortIDPin(innlest_tekst); //Må finne en løsning. Alexander/Nathalie fiks.
+                    //EndreKortIDPin(innlest_tekst); //Må finne en løsning. Alexander/Nathalie fiks.
+                    //EndreKortIDPin(innlest_tekst); //Må finne en løsning. Alexander/Nathalie fiks.
 
 
 
@@ -194,44 +194,45 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
         }
 
         //Oppgave 4
-        static void EndreKortIDPin(string tekst)
-        {
-            if (tekst.Length > 5 && (tekst.Substring(0, 2) == "$F"))
-            {
-                int indeksIDStart = tekst.IndexOf('F');
-                int kortid = Convert.ToInt32(tekst.Substring(indeksIDStart + 1, 4));
-                if (kortid > 1000)
-                {
-                    Console.WriteLine(enMelding);
-                    enMelding = enMelding!.Insert(enMelding.IndexOf('F') + 1, kortid.ToString());
-                    enMelding = enMelding.Remove(enMelding.IndexOf('F') + 5, 4);
-                    //data = data + enMelding;
-                    Console.WriteLine(enMelding);
-                }
-            }
+        //static void EndreKortIDPin(string tekst)
+        //{
+        //    if (tekst.Length > 5 && (tekst.Substring(0, 2) == "$F"))
+        //    {
+        //        int indeksIDStart = tekst.IndexOf('F');
+        //        int kortid = Convert.ToInt32(tekst.Substring(indeksIDStart + 1, 4));
+        //        if (kortid > 1000)
+        //        {
+        //            Console.WriteLine(enMelding);
+        //            enMelding = enMelding!.Insert(enMelding.IndexOf('F') + 1, kortid.ToString());
+        //            enMelding = enMelding.Remove(enMelding.IndexOf('F') + 5, 4);
+        //            //data = data + enMelding;
+        //            Console.WriteLine(enMelding);
+        //        }
+        //    }
 
-            if (tekst.Length > 5 && (tekst.Substring(0, 2) == "$H"))
-            {
-                int indeksIDStart = tekst.IndexOf('H');
-                int kortpin = Convert.ToInt32(tekst.Substring(indeksIDStart + 1, 4));
-                if (kortpin > 1000)
-                {
-                    Console.WriteLine(enMelding);
-                    enMelding = enMelding!.Insert(enMelding.IndexOf('H') + 1, kortpin.ToString());
-                    enMelding = enMelding.Remove(enMelding.IndexOf('H') + 5, 4);
-                    Console.WriteLine(enMelding);
-                }
-            }
-        }
+        //    if (tekst.Length > 5 && (tekst.Substring(0, 2) == "$H"))
+        //    {
+        //        int indeksIDStart = tekst.IndexOf('H');
+        //        int kortpin = Convert.ToInt32(tekst.Substring(indeksIDStart + 1, 4));
+        //        if (kortpin > 1000)
+        //        {
+        //            Console.WriteLine(enMelding);
+        //            enMelding = enMelding!.Insert(enMelding.IndexOf('H') + 1, kortpin.ToString());
+        //            enMelding = enMelding.Remove(enMelding.IndexOf('H') + 5, 4);
+        //            Console.WriteLine(enMelding);
+        //        }
+        //    }
+        //}
 
         /*Erik fiks*/
         //Oppgave 4: Behandler adgangsforespørsler fra kortet, sjekker om de samsvarer med det som er hentet fra sentral.
         static bool Adgangsforepørsel(int kortpin, int kortid)
         {
             bool adgang = false;
-            kortPINFraSentral = 1023;   //Erik fikse innhentingen og sending til sentral. Vi har bare satt det til 1023 for testing.
+            //sendkortid(kortid);
+            //Må også sjekke hva kortid sendt til sentral ikke er i DB
+            //kortPINFraSentral = mottarkortpinfrasentral();   //Erik fikse innhentingen og sending til sentral. Vi har bare satt det til 1023 for testing.
             kortIDFraSentral = 1023;    //Erik fikse innhentingen
-
             if (kortid == kortIDFraSentral && kortpin == kortPINFraSentral)
             {
                 adgang = true;
@@ -389,7 +390,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
         // Datatypene for kortleser
         static string dataTilSentral;
         static string dataFraSentral;
-      
+
 
         // Metode for å lese inn kode
         public void Kode(int inn)
@@ -406,7 +407,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
                     kodeinput.Clear();
 
                     // Sender informasjon til sentral for å autentisere brukeren
-                    dataTilSentral = $"K:{kortID} P:{pin} L:{kortleserID}";
+                    dataTilSentral = $"K:{kortID}"; //P:{pin} L:{kortleserID}";
 
                     if (kommunikasjonMedSentral == true)
                     {
@@ -457,8 +458,8 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
             {
                 // Oppretter tilkobling mot sentral ved bruk av TCP/IP
 
-                klientSokkel = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse("192.168.0.1"), 9050);
+                // klientSokkel = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9050);
                 // må sette opp noe for å lese kortleser ID fra simsim
 
 
@@ -471,7 +472,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
                     {
                         // Kortleser vil spørre etter sin ID fra sentralen
                         dataTilSentral = "RequestID";
-                        BW_SendKvittering.RunWorkerAsync();
+                        // BW_SendKvittering.RunWorkerAsync();
                     }
                     catch (Exception)
                     {
@@ -486,7 +487,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
                 }
             }
 
-            static void Avslutt()
+            void Avslutt()
             {
 
 
