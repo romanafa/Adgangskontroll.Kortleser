@@ -4,7 +4,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
 {
     internal class Program
     {
-        static string? enMelding = "";      //Oppgave 2     //linje 27 //må ha static hvis EndreKortIDPin metoden brukes
+        static string? enMelding = "";      //Oppgave 2     //linje 27 //må ha static hvis BrukerSkriverInnKortIDPin metoden brukes
         static string? innlest_tekst = "";  //Oppgave 3        
         static int kortPINFraSentral;       //Oppgave 4
         static int kortIDFraSentral;        //Oppgave 4
@@ -34,12 +34,14 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
             //string? kortlesernummer = Console.ReadLine(); //Erik skal bruke denne for å gi til database.
             //Console.Title = kortlesernummer!;
 
+            Console.WriteLine("Når bruker skal angi PIN-kode og kortID må det oppgies på formatet: $F3251$H1826\n" +
+                "Hvor $F3251 er kort ID-en = 3251 og $H1826 er kort PIN-koden = 1826");
+
             //Oppgave 5: Starter en tidsteller som kjøres parallelt med resten av koden.
             //Som brukes når døren er åpen for lenge eller tiden døren er ulåst.
             Thread tid = new Thread(DørTid);
             tid.Start();
 
-            
 
             //Oppgave 3: Starter tråd for å lese meldinger bruker skriver i konsollvinduet.
             Thread lesing = new Thread(LestMelding);
@@ -74,13 +76,13 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
                         enMelding = HentUtEnMelding(ref data);  //Ta ut meldingen (bevar eventuell rest)
                         Console.WriteLine(enMelding);           //Skriver ut meldingen
                         //Henter informasjon fra kortet og deklarer variablene.
-                        kortID = KortID(enMelding);
-                        kortPIN = KortPin(enMelding);
+                        kortID = KortID(enMelding);     //trengs ikke lenger
+                        kortPIN = KortPin(enMelding);   //trengs ikke lenger
                         dørLåst = Dørlåst(enMelding);
                         dørPosisjon = DørPosisjon(enMelding);
                         dørBruttopp = DørBruttopp(enMelding);
                         dørAlarm = DørAlarm(enMelding);
-                        //EndreKortIDPin(innlest_tekst); //Må finne en løsning. Alexander/Nathalie fiks.
+                        //BrukerSkriverInnKortIDPin(innlest_tekst); //Må finne en løsning. Alexander/Nathalie fiks.
 
                         //De to if else-ene trengs ikke, men er for visualisering av kode.
                         if (dørLåst)
@@ -94,6 +96,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
                             Console.WriteLine("Dør lukket");
 
                         //Oppgave 4: Sjekker PIN-kode og kortID, låser opp døren hvis det er riktig og lar den være ulåst i "dørlåstopptid" sekunder.
+                        //trengs ikke lenger
                         if (Adgangsforepørsel(kortPIN, kortID))
                         {
                             dørLåst = false;
@@ -145,13 +148,20 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
                     SendEnMelding(innlest_tekst, sp);
 
                     //Oppgave 4 behandle adgangsforespørsler(motta kortid +PINkode fra bruker)
-                    //Når det skal testes i mot sentral og skrives i Kortleser programmet så blir kommandoen
-                    //Simsim må ikke sende meldinger for at det skal fungere.
-                    //"$F1000" for ID 1000 og "$F3251" for ID 3251. Kun tall over 1023 kan endres ved å skrive i console, ellers må det endres i Simsim
-                    //"$H1000" for pin 1000 og "$H3251" for pin 3251.
-                    EndreKortIDPin(innlest_tekst); //Må finne en løsning. Alexander/Nathalie fiks.
-                    EndreKortIDPin(innlest_tekst); //Må finne en løsning. Alexander/Nathalie fiks.
+                    //Når bruker skal angi PIN-kode og kortID må det oppgies på formatet: $F3251$H1826
+                    //Hvor "$F3251" er kort ID-en = 3251 og $H1826 er kort PIN-koden = 1826.                    
+                    //Oppgave 4: Leser av oppgitt kortid fra bruker.
+                    //Oppgave 4: Leser av oppgitt kort PIN-kode fra bruker.
+                    BrukerSkriverInnKortIDPin(innlest_tekst);
 
+                    //Oppgave 4: Sjekker PIN-kode og kortID, låser opp døren hvis det er riktig og lar den være ulåst i "dørlåstopptid" sekunder.
+                    if (Adgangsforepørsel(kortPIN, kortID))
+                    {
+                        dørLåst = false;
+                        tidulåst = dørlåstopptid;
+                        Console.WriteLine("Godkjent! Døren låses opp");//Trengs ikke, men er for visualisering av kode.
+                        SendEnMelding("$O50", sp);
+                    }
 
 
 
@@ -161,7 +171,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
 
 
         //Oppgave 4: Leser av oppgitt kortid fra kortet/simsim.
-        static int KortID(string EnMelding)
+        static int KortID(string EnMelding)     //trengs ikke lenger
         {
             int indeksIDStart = EnMelding.IndexOf('F');
             int kortid = Convert.ToInt32(EnMelding.Substring(indeksIDStart + 1, 4));
@@ -169,7 +179,7 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
         }
 
         //Oppgave 4: Leser av oppgitt kort PIN-kode fra kortet/simsim.
-        static int KortPin(string EnMelding)
+        static int KortPin(string EnMelding)    //trengs ikke lenger
         {
             int indeksPinStart = EnMelding.IndexOf('H');
             int kortpin = Convert.ToInt32(EnMelding.Substring(indeksPinStart + 1, 4));
@@ -177,34 +187,15 @@ namespace Adgangskontroll.Kortleser //Fjerne "Oppgave x:" før innlevering
         }
 
         //Oppgave 4
-        static void EndreKortIDPin(string tekst)
+        static void BrukerSkriverInnKortIDPin(string tekst)
         {
-            if (tekst.Length > 5 && (tekst.Substring(0, 2) == "$F"))
+            if (tekst.Length > 11 && (tekst.Substring(0, 2) == "$F") && (tekst.Substring(6, 2) == "$H"))
             {
                 int indeksIDStart = tekst.IndexOf('F');
-                int kortid = Convert.ToInt32(tekst.Substring(indeksIDStart + 1, 4));
-                if (kortid > 1000)
-                {
-                    Console.WriteLine(enMelding);
-                    enMelding = enMelding!.Insert(enMelding.IndexOf('F') + 1, kortid.ToString());
-                    enMelding = enMelding.Remove(enMelding.IndexOf('F') + 5, 4);
-                    //data = data + enMelding;
-                    Console.WriteLine(enMelding);
-                }
-            }
-
-            if (tekst.Length > 5 && (tekst.Substring(0, 2) == "$H"))
-            {
-                int indeksIDStart = tekst.IndexOf('H');
-                int kortpin = Convert.ToInt32(tekst.Substring(indeksIDStart + 1, 4));
-                if (kortpin > 1000)
-                {
-                    Console.WriteLine(enMelding);
-                    enMelding = enMelding!.Insert(enMelding.IndexOf('H') + 1, kortpin.ToString());
-                    enMelding = enMelding.Remove(enMelding.IndexOf('H') + 5, 4);
-                    Console.WriteLine(enMelding);
-                }
-            }
+                int indeksPINStart = tekst.IndexOf('H');
+                kortID = Convert.ToInt32(tekst.Substring(indeksIDStart + 1, 4));                
+                kortPIN = Convert.ToInt32(tekst.Substring(indeksPINStart + 1, 4));                
+            }            
         }
 
         /*Erik fiks*/
