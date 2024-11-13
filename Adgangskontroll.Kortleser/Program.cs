@@ -17,16 +17,10 @@ namespace Adgangskontroll.Kortleser
         static bool dørPosisjon;
         static bool dørAlarm;
         static bool dørBruttopp;
-        static int døråpenalarmtid = 10;    //Hvor lenge døren er åpen før alarmen går. I sekunder.
-        static int dørlåstopptid = 5;       //Hvor lenge døren er ulåst ved bruk av adgangskort. I sekunder.
         static int tid = 0;
-
-        //Skal denne være her eller den på linje 56??
-        // Etablerer IP-kommunikasjon
-        //Socket klientSokkel;
-
-        // Brukes for sikkerhetsmekanisme for lukking av kortleser
-        static bool Avbryt = false;
+        static int døråpenalarmtid = 10;            //Hvor lenge døren er åpen før alarmen går. I sekunder.
+        static int dørlåstopptid = 5;               //Hvor lenge døren er ulåst ved bruk av adgangskort. I sekunder.                
+        static bool Avbryt = false;                 // Brukes for sikkerhetsmekanisme for lukking av kortleser
         static bool kommunikasjonMedSentral = true; // Sett denne til false eller true basert på din situasjon
 
 
@@ -37,7 +31,6 @@ namespace Adgangskontroll.Kortleser
             SerialPort sp = new SerialPort("COM"+komnummer, 9600);
             string data = "";
             string? enMelding = "";
-
             
             //Registrer et kortlesernummer når prosessen og sender det til sentralen.
             Console.WriteLine("Skriv inn kortlesernummer i format '####' hvor '#' er et siffer.");
@@ -46,14 +39,13 @@ namespace Adgangskontroll.Kortleser
             //Mangler å sende kortlesernummer til sentral
 
             //Starter en tidsteller som kjøres parallelt med resten av koden.
-            //Som brukes når døren er åpen for lenge eller tiden døren er ulåst.
+            //Som brukes når døren er åpen for lenge og tiden døren er ulåst.
             Thread tid = new Thread(DørTid);
             tid.Start();
 
             Console.WriteLine("Når bruker skal angi PIN-kode og kortID må det oppgies på formatet: $F3251$H1826\n" +
                 "Hvor $F3251 er kort ID-en = 3251 og $H1826 er kort PIN-koden = 1826");
 
-            //Skal denne være her eller den på linje 24??
             // Etablerer IP-kommunikasjon
             // Socket klientSokkel;
 
@@ -185,7 +177,7 @@ namespace Adgangskontroll.Kortleser
             //Må også sjekke hva kortid sendt til sentral ikke er i DB            
             //kortPINFraSentral = mottarkortpinfrasentral();   //Fikse innhentingen og sending til sentral. Vi har bare satt det til 1023 for testing.
 
-            kortPINFraSentral = 1023;
+            kortPINFraSentral = 1023;   //Fikse innhentingen
             kortIDFraSentral = 1023;    //Fikse innhentingen
             if (kortid == kortIDFraSentral && kortpin == kortPINFraSentral)
             {
@@ -338,6 +330,14 @@ namespace Adgangskontroll.Kortleser
 
 
 
+
+
+
+
+
+        //Ikke fungerende slik ønsket kode herfra og til bunnen.
+
+
         // Liste for å lagre koden som tastes inn
         List<int> kodeinput = new List<int>();
 
@@ -384,23 +384,6 @@ namespace Adgangskontroll.Kortleser
                 throw;
             }
         }
-
-        //// Knapper for å åpne og lukke døren
-        //private void BTN_Åpne_Click(object sender, EventArgs e)
-        //{
-
-        //    dataTilSentral = $"K:{kortID} L:{kortleserID}S";
-
-        //    if (råDørÅpen == 0 && råDørLåst == 1)
-        //    {
-        //        SendEnMelding("$O61", sp);
-        //        if (kommunikasjonMedSentral == true)
-        //        {
-        //            BW_SendKvittering.RunWorkerAsync();
-        //        }
-        //    }
-
-        //}
 
 
         private void TCP()
